@@ -6,8 +6,7 @@
   <a href="#routing-is-where-the-money-is">Routing</a> &middot;
   <a href="#guardrails-redaction-matters-more-than-blocking">Guardrails</a> &middot;
   <a href="#caching-is-exact-match-deliberately">Caching</a> &middot;
-  <a href="#budgets-are-checked-before-the-call">Budgets</a> &middot;
-  <a href="#problems-hit-while-building-this">Problems hit</a>
+  <a href="#budgets-are-checked-before-the-call">Budgets</a> 
 </p>
 
 <p align="center">
@@ -229,41 +228,3 @@ indistinguishable from a request that never arrived.
 
 Uses the same fake providers the tests use — no API key, no network, but real prices, so
 the $0.084 is the actual cost of that one routing decision.
-
-## Problems hit while building this
-
-**A tenant restricted to one model could not ask a hard question at all.** The router
-picked a difficulty tier, filtered its preferred models against the tenant's allowlist,
-found nothing, and raised. So a customer on a small-model plan got an error instead of
-an answer whenever their question looked complex.
-
-Both obvious fixes are wrong: refusing locks the tenant out of hard questions, and
-silently upgrading charges them for a model they never bought. *Fixed* by falling back
-to the best model the tenant **is** permitted, with the genuinely-unknown-model case
-still failing loudly. Both branches are now tests.
-
-**Semantic caching was rejected on purpose.** It was the obvious upgrade and it is a
-good way to serve a confidently wrong answer — *"is X safe for children"* and *"is X
-safe for adults"* embed almost identically and need opposite replies. The cache
-normalises whitespace and case only, and a cache hit is recorded at **zero cost**,
-because reporting the original price on a hit inflates every spend figure in the system.
-
-**Every Pakistani CNIC was being reported to a compliance audit as a credit card.**
-Found by building the demo above and clicking the CNIC sample. A CNIC is 13 digits with
-separators, so `credit_card`'s `(?:\d[ -]?){13,19}` matches it too — and it sat *before*
-`cnic` in `PII_PATTERNS`, so it claimed the match first. The data was still redacted, so
-nothing leaked; the *label* was wrong, which is the part a data-protection report is
-made of.
-
-The existing test could not catch it, and that is the more useful half of the lesson:
-
-```python
-def test_cnic_is_recognised(self):
-    out = check_input("my cnic is 35202-1234567-1", redact_pii=True)
-    assert "35202-1234567-1" not in out.text      # passes either way
-```
-
-It asserted the digits were *gone*, which is true whichever pattern fired. *Fixed* by
-ordering specific patterns before general ones, and by asserting the finding label
-(`out.findings == ["redacted:cnic"]`) rather than just the absence of the text — the
-version of the test that actually fails against the old code.
