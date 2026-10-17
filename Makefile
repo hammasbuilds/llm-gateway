@@ -10,9 +10,6 @@ install:  ## Create .venv and install everything
 test:  ## Run the policy suite - no API key, no network, no model
 	uv run pytest -q
 
-api:  ## Run the gateway API on :8004
-	uv run uvicorn gateway.api:app --reload --port 8004
-
 lint:  ## Lint
 	uv run ruff check src tests
 	uv run ruff format --check src tests
@@ -21,4 +18,4 @@ fmt:  ## Auto-format
 	uv run ruff format src tests
 	uv run ruff check --fix src tests
 
-.PHONY: help install test api lint fmt
+.PHONY: help install test lint fmt
